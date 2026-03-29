@@ -4,7 +4,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from kiko.auth import AuthStatus
+from kiko.auth import AuthStatus, SetupResult
 from kiko.cli import app
 from kiko.results import OperationSummary
 
@@ -52,3 +52,34 @@ def test_export_command_returns_summary_exit_code(monkeypatch, tmp_path: Path) -
 
     assert result.exit_code == 2
     assert "warning: test warning" in result.stderr
+
+
+def test_auth_setup_command_prints_stored_credentials(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "kiko.cli.setup",
+        lambda credentials_path: SetupResult(
+            stored_credentials_path=Path("/tmp/credentials.json"),
+        ),
+    )
+
+    result = runner.invoke(app, ["auth", "setup"])
+
+    assert result.exit_code == 0
+    assert "credentials_path: /tmp/credentials.json" in result.stdout
+
+
+def test_auth_setup_command_prints_manual_steps(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "kiko.cli.setup",
+        lambda credentials_path: SetupResult(
+            instructions=[
+                "No OAuth client credentials file is available yet.",
+                "Create or download a Desktop app OAuth client.",
+            ],
+        ),
+    )
+
+    result = runner.invoke(app, ["auth", "setup"])
+
+    assert result.exit_code == 2
+    assert "Desktop app OAuth client" in result.stderr

@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from kiko import __version__
-from kiko.auth import AuthError, get_credentials, login, logout, status
+from kiko.auth import AuthError, get_credentials, login, logout, setup, status
 from kiko.exporter import Exporter
 from kiko.importer import Importer
 from kiko.keep_client import KeepClient
@@ -15,7 +15,7 @@ app = typer.Typer(no_args_is_help=True)
 auth_app = typer.Typer(no_args_is_help=True)
 app.add_typer(auth_app, name="auth")
 
-LOGIN_CREDENTIALS_OPTION = typer.Option(..., exists=True, readable=True)
+SETUP_CREDENTIALS_OPTION = typer.Option(None, "--credentials")
 DRY_RUN_OPTION = typer.Option(False, "--dry-run")
 FORCE_OPTION = typer.Option(False, "--force")
 CREDENTIALS_OPTION = typer.Option(None, "--credentials")
@@ -36,14 +36,35 @@ def version() -> None:
 
 
 @auth_app.command("login")
-def auth_login(credentials: Path = LOGIN_CREDENTIALS_OPTION) -> None:
+def auth_login() -> None:
     """Run the local OAuth flow and cache a token."""
     try:
-        login(credentials)
+        login()
     except AuthError as error:
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=1) from error
     typer.echo("Logged in.")
+
+
+@auth_app.command("setup")
+def auth_setup(
+    credentials: Path | None = SETUP_CREDENTIALS_OPTION,
+) -> None:
+    """Store OAuth client credentials under kiko's auth directory."""
+    try:
+        result = setup(credentials_path=credentials)
+    except AuthError as error:
+        typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+    if result.stored_credentials_path is not None:
+        typer.echo(f"credentials_path: {result.stored_credentials_path}")
+        typer.echo("next: uv run kiko auth login")
+        return
+
+    for line in result.instructions:
+        typer.echo(line, err=True)
+    raise typer.Exit(code=2)
 
 
 @auth_app.command("logout")

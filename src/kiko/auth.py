@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import shutil
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -22,6 +23,10 @@ class AppPaths:
     config_file: Path
     token_file: Path
 
+    @property
+    def bundled_credentials_file(self) -> Path:
+        return self.config_dir / "credentials.json"
+
 
 @dataclass(slots=True)
 class AuthConfig:
@@ -33,6 +38,12 @@ class AuthStatus:
     logged_in: bool
     token_path: Path
     credentials_path: str | None
+
+
+@dataclass(slots=True)
+class SetupResult:
+    stored_credentials_path: Path | None = None
+    instructions: list[str] = field(default_factory=list)
 
 
 def default_paths() -> AppPaths:
@@ -63,21 +74,23 @@ def save_config(config: AuthConfig, *, paths: AppPaths | None = None) -> None:
 
 
 def login(
-    credentials_path: Path,
+    credentials_path: Path | None = None,
     *,
     paths: AppPaths | None = None,
     open_browser: bool = True,
 ) -> Credentials:
     app_paths = paths or default_paths()
-    if not credentials_path.exists():
-        raise AuthError(f"Credentials file does not exist: {credentials_path}")
+    actual_credentials_path = resolve_credentials_path(
+        credentials_path,
+        paths=app_paths,
+    )
     flow = InstalledAppFlow.from_client_secrets_file(
-        str(credentials_path),
+        str(actual_credentials_path),
         scopes=[KEEP_SCOPE],
     )
     credentials = flow.run_local_server(open_browser=open_browser, port=0)
     _save_credentials(credentials, app_paths.token_file)
-    save_config(AuthConfig(credentials_path=str(credentials_path)), paths=app_paths)
+    save_config(AuthConfig(credentials_path=str(actual_credentials_path)), paths=app_paths)
     return credentials
 
 
@@ -118,13 +131,93 @@ def get_credentials(
             return credentials
     if not interactive:
         raise AuthError("No valid OAuth token found. Run `kiko auth login` first.")
-    actual_credentials_path = credentials_path or _credentials_path_from_config(app_paths)
-    if actual_credentials_path is None:
-        raise AuthError("No credentials path provided. Use `--credentials` or run auth login.")
-    return login(actual_credentials_path, paths=app_paths)
+    return login(credentials_path, paths=app_paths)
 
 
-def _credentials_path_from_config(paths: AppPaths) -> Path | None:
+def setup(
+    *,
+    credentials_path: Path | None = None,
+    paths: AppPaths | None = None,
+) -> SetupResult:
+    app_paths = paths or default_paths()
+    if credentials_path is not None and not credentials_path.expanduser().exists():
+        raise AuthError(f"Credentials file does not exist: {credentials_path.expanduser()}")
+    source_credentials = _find_optional_credentials_source(
+        credentials_path,
+        paths=app_paths,
+    )
+    if source_credentials is None:
+        return SetupResult(instructions=manual_setup_instructions(app_paths))
+    return SetupResult(
+        stored_credentials_path=install_credentials(
+            source_credentials,
+            paths=app_paths,
+        )
+    )
+
+
+def install_credentials(source: Path, *, paths: AppPaths | None = None) -> Path:
+    app_paths = paths or default_paths()
+    resolved_source = source.expanduser()
+    if not resolved_source.exists():
+        raise AuthError(f"Credentials file does not exist: {resolved_source}")
+    app_paths.config_dir.mkdir(parents=True, exist_ok=True)
+    destination = app_paths.bundled_credentials_file
+    if resolved_source.resolve() != destination.resolve():
+        shutil.copy2(resolved_source, destination)
+    save_config(AuthConfig(credentials_path=str(destination)), paths=app_paths)
+    return destination
+
+
+def resolve_credentials_path(
+    credentials_path: Path | None,
+    *,
+    paths: AppPaths | None = None,
+) -> Path:
+    app_paths = paths or default_paths()
+    candidates = [
+        credentials_path,
+        _configured_credentials_path(app_paths),
+        app_paths.bundled_credentials_file,
+        Path.cwd() / "credentials.json",
+    ]
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        expanded = candidate.expanduser()
+        if expanded.exists():
+            return expanded
+    locations = ", ".join(str(path) for path in candidates if path is not None)
+    raise AuthError(
+        "No OAuth client credentials file found. "
+        "Create a Desktop app OAuth client in the Google Auth platform console, then "
+        "pass `--credentials`, or place `credentials.json` in "
+        f"{app_paths.bundled_credentials_file} or the current working directory. "
+        f"Looked in: {locations}"
+    )
+
+
+def _find_optional_credentials_source(
+    credentials_path: Path | None,
+    *,
+    paths: AppPaths,
+) -> Path | None:
+    candidates = [
+        credentials_path,
+        _configured_credentials_path(paths),
+        paths.bundled_credentials_file,
+        Path.cwd() / "credentials.json",
+    ]
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        expanded = candidate.expanduser()
+        if expanded.exists():
+            return expanded
+    return None
+
+
+def _configured_credentials_path(paths: AppPaths) -> Path | None:
     config = load_config(paths=paths)
     if not config.credentials_path:
         return None
@@ -134,3 +227,33 @@ def _credentials_path_from_config(paths: AppPaths) -> Path | None:
 def _save_credentials(credentials: Credentials, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(credentials.to_json(), encoding="utf-8")
+
+
+def manual_setup_instructions(paths: AppPaths) -> list[str]:
+    return [
+        "No OAuth client credentials file is available yet.",
+        "Create or download a Desktop app OAuth client:",
+        "The Google Keep API is enabled on the project, not on the OAuth client itself.",
+        "1. Go to https://cloud.google.com/.",
+        "2. Choose your Google Cloud project, or create one.",
+        '3. Search for "Google Keep API", open it, and click Enable for this project.',
+        (
+            '4. Search for "Google Auth platform" in the top search bar and open it.'
+        ),
+        (
+            "5. If no app exists yet, use the setup wizard to create one "
+            "(app info, audience, and contact details)."
+        ),
+        "6. Open Clients.",
+        (
+            "7. Create a Desktop app client, or open the existing "
+            "Desktop app client and download JSON."
+        ),
+        (
+            f"8. Save the downloaded file as `{paths.bundled_credentials_file}` "
+            "or rerun `uv run kiko auth setup --credentials /path/to/credentials.json`."
+        ),
+        "9. Then run `uv run kiko auth login`.",
+        "Reference: https://developers.google.com/workspace/guides/create-credentials",
+        "Reference: https://developers.google.com/workspace/guides/enable-apis",
+    ]
