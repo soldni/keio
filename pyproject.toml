@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kiko"
+version = "0.1.0"
+description = "Google Keep import/export CLI for markdown directories."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [
+  { name = "soldni" },
+]
+dependencies = [
+  "google-api-python-client>=2.180.0",
+  "google-auth-httplib2>=0.2.0",
+  "google-auth-oauthlib>=1.2.2",
+  "platformdirs>=4.4.0",
+  "typer>=0.17.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4.2",
+  "ruff>=0.13.0",
+]
+
+[project.scripts]
+kiko = "kiko.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kiko"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+  "SIM",
+]
