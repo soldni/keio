@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
+from kiko.client_protocol import KeepClientProtocol
 from kiko.conflicts import remote_is_newer, remote_matches_footer
-from kiko.keep_client import KeepClient
 from kiko.markdown_io import (
     attach_footer_to_content,
     content_sha256,
@@ -16,7 +16,7 @@ from kiko.results import OperationSummary
 
 
 class Importer:
-    def __init__(self, client: KeepClient) -> None:
+    def __init__(self, client: KeepClientProtocol) -> None:
         self._client = client
 
     def import_directory(

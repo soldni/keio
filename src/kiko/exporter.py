@@ -11,8 +11,8 @@ from kiko.attachments import (
     is_image_attachment,
     markdown_reference,
 )
+from kiko.client_protocol import KeepClientError, KeepClientProtocol
 from kiko.conflicts import content_hash_matches
-from kiko.keep_client import KeepClient, KeepClientError
 from kiko.markdown_io import (
     content_sha256,
     parse_markdown_file,
@@ -27,7 +27,7 @@ INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 
 
 class Exporter:
-    def __init__(self, client: KeepClient) -> None:
+    def __init__(self, client: KeepClientProtocol) -> None:
         self._client = client
 
     def export_directory(
