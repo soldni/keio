@@ -29,7 +29,7 @@ def test_auth_status_command(monkeypatch) -> None:
 
 def test_export_command_returns_summary_exit_code(monkeypatch, tmp_path: Path) -> None:
     class StubExporter:
-        def __init__(self, client) -> None:
+        def __init__(self, client, **_kwargs) -> None:
             pass
 
         def export_directory(

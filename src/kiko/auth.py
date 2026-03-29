@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import json
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
 from platformdirs import PlatformDirs
+
+
+def _noop(_msg: str) -> None:
+    pass
 
 KEEP_SCOPE = "https://www.googleapis.com/auth/keep"
 
@@ -231,6 +236,7 @@ def build_keep_client(
     paths: AppPaths | None = None,
     credentials_path: Path | None = None,
     interactive: bool = False,
+    log: Callable[[str], None] = _noop,
 ) -> object:
     """Factory that returns the right client for the configured method."""
     app_paths = paths or default_paths()
@@ -238,8 +244,9 @@ def build_keep_client(
     method = _resolve_method(config, app_paths)
 
     if method == AuthMethod.GKEEPAPI:
-        return _build_gkeepapi_client(paths=app_paths)
+        return _build_gkeepapi_client(paths=app_paths, log=log)
 
+    log("Authenticating with Google Keep API...")
     return _build_enterprise_client(
         credentials_path=credentials_path,
         interactive=interactive,
@@ -263,18 +270,26 @@ def _build_enterprise_client(
     return KeepClient(credentials)
 
 
-def _build_gkeepapi_client(*, paths: AppPaths) -> object:
+def _build_gkeepapi_client(
+    *,
+    paths: AppPaths,
+    log: Callable[[str], None] = _noop,
+) -> object:
     import gkeepapi as gkapi
 
     from kiko.gkeepapi_client import GkeepApiClient
 
     token_data = _load_master_token(paths)
+    log(f"Authenticating as {token_data['email']}...")
     keep = gkapi.Keep()
     state = _load_gkeepapi_state(paths)
+    has_state = state is not None
+    log("Syncing with Google Keep" + (" (incremental)..." if has_state else " (full sync)..."))
     try:
         keep.authenticate(token_data["email"], token_data["master_token"], state=state)
     except Exception as exc:
         raise AuthError(f"gkeepapi authentication failed: {exc}") from exc
+    log("Sync complete. Saving state...")
     _save_gkeepapi_state(keep.dump(), paths)
     return GkeepApiClient(keep)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 
 from kiko.client_protocol import KeepClientProtocol
@@ -15,9 +16,19 @@ from kiko.markdown_model import FooterMetadata, ParsedMarkdownNote
 from kiko.results import OperationSummary
 
 
+def _noop(_msg: str) -> None:
+    pass
+
+
 class Importer:
-    def __init__(self, client: KeepClientProtocol) -> None:
+    def __init__(
+        self,
+        client: KeepClientProtocol,
+        *,
+        log: Callable[[str], None] = _noop,
+    ) -> None:
         self._client = client
+        self._log = log
 
     def import_directory(
         self,
@@ -32,7 +43,11 @@ class Importer:
             summary.add_issue("error", f"Directory does not exist: {directory}")
             return summary
 
-        parsed_notes = [parse_markdown_file(path) for path in sorted(directory.glob("*.md"))]
+        self._log("Scanning local markdown files...")
+        md_paths = sorted(directory.glob("*.md"))
+        parsed_notes = [parse_markdown_file(path) for path in md_paths]
+        self._log(f"Found {len(parsed_notes)} local file(s).")
+
         duplicates = self._duplicate_titles(parsed_notes)
         duplicate_keep_names = self._duplicate_keep_names(parsed_notes)
         if duplicate_keep_names:
@@ -44,14 +59,19 @@ class Importer:
                 )
             return summary
 
+        self._log("Fetching remote notes...")
         remote_notes = self._client.list_notes()
+        self._log(f"Found {len(remote_notes)} remote note(s).")
         notes_by_title: dict[str, list[str]] = {}
         for note in remote_notes:
             notes_by_title.setdefault(note.title, []).append(note.name)
 
-        for note in parsed_notes:
+        total = len(parsed_notes)
+        for idx, note in enumerate(parsed_notes, 1):
+            label = _display_title(note)
             effective_title = _effective_title(note)
             if duplicates.get(effective_title, 0) > 1:
+                self._log(f"[{idx}/{total}] Skipped {label} (duplicate local title)")
                 summary.increment("skipped")
                 summary.add_issue(
                     "skip",
@@ -66,6 +86,7 @@ class Importer:
 
             checklist_items = parse_checklist_markdown(note.body_markdown)
             is_list = checklist_items is not None
+            kind_tag = "list" if is_list else "text"
             footer = note.footer
             remote_note = (
                 self._client.get_note(footer.keep_name)
@@ -80,12 +101,14 @@ class Importer:
                 )
                 if not force and not footer_matches:
                     if remote_is_newer(remote_note.update_time, footer.keep_update_time):
+                        self._log(f"[{idx}/{total}] Skipped {label} (remote is newer)")
                         summary.increment("skipped")
                         summary.add_issue(
                             "skip",
                             f"Remote note is newer than local file: {note.path.name}",
                         )
                     else:
+                        self._log(f"[{idx}/{total}] Skipped {label} (timestamp mismatch)")
                         summary.increment("skipped")
                         summary.add_issue(
                             "skip",
@@ -93,8 +116,10 @@ class Importer:
                         )
                     continue
                 if dry_run:
+                    self._log(f"[{idx}/{total}] Would replace {label} ({kind_tag})")
                     summary.increment("replaced")
                     continue
+                self._log(f"[{idx}/{total}] Replacing {label} ({kind_tag})")
                 new_note = (
                     self._client.replace_list_note(
                         remote_note.name,
@@ -118,17 +143,21 @@ class Importer:
                 continue
 
             if effective_title in notes_by_title:
+                self._log(f"[{idx}/{total}] Skipped {label} (title exists in Keep)")
                 summary.increment("skipped")
                 summary.add_issue(
                     "skip",
-                    f"Keep already has a note titled `{effective_title}`; skipped {note.path.name}",
+                    f"Keep already has a note titled `{effective_title}`; "
+                    f"skipped {note.path.name}",
                 )
                 continue
 
             if dry_run:
+                self._log(f"[{idx}/{total}] Would create {label} ({kind_tag})")
                 summary.increment("created")
                 continue
 
+            self._log(f"[{idx}/{total}] Creating {label} ({kind_tag})")
             created_note = (
                 self._client.create_list_note(effective_title, checklist_items or [])
                 if is_list
@@ -175,6 +204,11 @@ class Importer:
             attach_footer_to_content(note.raw_content_without_footer, footer),
             encoding="utf-8",
         )
+
+
+def _display_title(note: ParsedMarkdownNote) -> str:
+    title = _effective_title(note)
+    return f'"{title}"' if title else f"({note.path.name})"
 
 
 def _effective_title(note: ParsedMarkdownNote) -> str:

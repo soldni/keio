@@ -127,7 +127,7 @@ def export_notes(
 ) -> None:
     """Export Keep notes into a markdown directory."""
     _run_operation(
-        lambda: Exporter(_build_client(credentials)).export_directory(
+        lambda: Exporter(_build_client(credentials), log=_log).export_directory(
             directory,
             dry_run=dry_run,
             force=force,
@@ -144,7 +144,7 @@ def import_notes(
 ) -> None:
     """Import markdown notes into Google Keep."""
     _run_operation(
-        lambda: Importer(_build_client(credentials)).import_directory(
+        lambda: Importer(_build_client(credentials), log=_log).import_directory(
             directory,
             dry_run=dry_run,
             force=force,
@@ -152,11 +152,16 @@ def import_notes(
     )
 
 
+def _log(msg: str) -> None:
+    typer.echo(msg, err=True)
+
+
 def _build_client(credentials_path: Path | None) -> object:
     try:
         return build_keep_client(
             credentials_path=credentials_path,
             interactive=credentials_path is not None,
+            log=_log,
         )
     except AuthError as error:
         typer.echo(f"error: {error}", err=True)
