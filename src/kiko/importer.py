@@ -141,13 +141,14 @@ class Importer:
                     continue
 
                 if not force and not content_changed:
-                    need_images = images and has_images and not self._note_has_attachments(
-                        remote_note
-                    )
-                    if not need_images:
+                    if images and has_images:
+                        self._log(f"[{idx}/{total}] Unchanged {label} (images pending)")
+                        summary.increment("unchanged")
+                        self._assist_image_upload(remote_note.name, note)
+                    else:
                         self._log(f"[{idx}/{total}] Unchanged {label}")
                         summary.increment("unchanged")
-                        continue
+                    continue
 
                 if dry_run:
                     self._log(f"[{idx}/{total}] Would replace {label} ({kind_tag})")
@@ -245,10 +246,6 @@ class Importer:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _note_has_attachments(note) -> bool:
-        return bool(note.attachments)
 
     def _duplicate_titles(self, notes: list[ParsedMarkdownNote]) -> Counter[str]:
         return Counter(_effective_title(note) for note in notes)
