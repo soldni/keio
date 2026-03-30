@@ -2,11 +2,11 @@
     <img src="https://github.com/soldni/kiko/blob/main/assets/kiko-icon.png?raw=true" alt="kiko logo" width="256" />
 </p>
 
-# kiko
+# KiKo
 
 A Python CLI for importing and exporting Google Keep notes to markdown directories.
 
-`kiko` stores sync metadata in an HTML comment footer at the bottom of each exported
+KiKo stores sync metadata in an HTML comment footer at the bottom of each exported
 markdown file, enabling conflict detection and incremental syncing.
 
 ## Installation
@@ -21,7 +21,7 @@ Or with `uv`:
 uv tool install kiko
 ```
 
-To use the gkeepapi backend (see [Authentication](#authentication) below):
+To use the `gkeepapi` backend (see [Authentication](#authentication) below):
 
 ```bash
 pip install "kiko[gkeepapi]"
@@ -57,7 +57,7 @@ References:
 - [Creating credentials](https://developers.google.com/workspace/guides/create-credentials)
 - [Enabling APIs](https://developers.google.com/workspace/guides/enable-apis)
 
-### Option B: gkeepapi (unofficial, any Google account)
+### Option B: `gkeepapi` (unofficial, any Google account)
 
 > [!WARNING]
 > This backend uses the unofficial [gkeepapi](https://github.com/kiwiz/gkeepapi)
