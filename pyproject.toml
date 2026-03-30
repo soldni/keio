@@ -4,13 +4,21 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kiko"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Google Keep import/export CLI for markdown directories."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
 authors = [
-  { name = "soldni" },
+  { name = "Luca Soldaini", email = "luca@soldaini.net" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Utilities",
 ]
 dependencies = [
   "google-api-python-client>=2.180.0",
@@ -28,8 +36,16 @@ dev = [
   "ruff>=0.13.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/soldni/kiko"
+Repository = "https://github.com/soldni/kiko"
+Issues = "https://github.com/soldni/kiko/issues"
+
 [project.scripts]
 kiko = "kiko.cli:main"
+
+[tool.hatch.version]
+path = "src/kiko/version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kiko"]
