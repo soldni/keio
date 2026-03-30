@@ -208,3 +208,6 @@ __marimo__/
 
 # do not sync uv lock
 uv.lock
+
+# macOS local files
+.DS_Store

@@ -50,6 +50,13 @@ def test_parse_checklist_markdown_accepts_one_level_children() -> None:
     assert render_checklist_markdown(items) == body
 
 
+def test_extract_footer_ignores_malformed_json() -> None:
+    content, footer = extract_footer("hello\n\n<!-- kiko:{bad json} -->")
+    # Malformed footer line is preserved as content, not stripped
+    assert content == "hello\n\n<!-- kiko:{bad json} -->"
+    assert footer is None
+
+
 def test_content_sha256_uses_footerless_content() -> None:
     content = "# Title\n\nbody"
     footer = FooterMetadata(keep_name="notes/abc")

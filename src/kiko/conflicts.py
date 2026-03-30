@@ -21,7 +21,13 @@ def remote_is_newer(remote_update_time: str | None, footer_update_time: str | No
 def remote_matches_footer(remote_update_time: str | None, footer_update_time: str | None) -> bool:
     if not remote_update_time or not footer_update_time:
         return False
-    return remote_update_time == footer_update_time
+    if remote_update_time == footer_update_time:
+        return True
+    remote = parse_google_timestamp(remote_update_time)
+    footer = parse_google_timestamp(footer_update_time)
+    if remote is None or footer is None:
+        return False
+    return remote == footer
 
 
 def content_hash_matches(current_hash: str, expected_hash: str | None) -> bool:

@@ -190,7 +190,7 @@ def status(*, paths: AppPaths | None = None) -> AuthStatus:
     config = load_config(paths=app_paths)
     method = config.method
     if method == AuthMethod.GKEEPAPI.value:
-        logged_in = app_paths.master_token_file.exists()
+        logged_in = app_paths.gkeepapi_state_file.exists()
     else:
         logged_in = app_paths.token_file.exists()
     return AuthStatus(

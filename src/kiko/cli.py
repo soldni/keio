@@ -22,7 +22,6 @@ app = typer.Typer(no_args_is_help=True)
 auth_app = typer.Typer(no_args_is_help=True)
 app.add_typer(auth_app, name="auth")
 
-SETUP_CREDENTIALS_OPTION = typer.Option(None, "--credentials")
 DRY_RUN_OPTION = typer.Option(False, "--dry-run")
 FORCE_OPTION = typer.Option(False, "--force")
 CREDENTIALS_OPTION = typer.Option(None, "--credentials")

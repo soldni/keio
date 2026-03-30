@@ -92,6 +92,24 @@ def test_export_moves_tracked_file_when_title_changes(tmp_path: Path, fake_keep_
     assert (tmp_path / "New.md").exists()
 
 
+def test_export_strips_leading_dots_from_title(tmp_path: Path, fake_keep_client) -> None:
+    fake_keep_client._notes["notes/1"] = KeepNote(
+        name="notes/1",
+        title=".hidden",
+        update_time="2026-03-29T12:00:00Z",
+        kind="text",
+        text_body="body",
+    )
+
+    summary = Exporter(fake_keep_client).export_directory(tmp_path)
+
+    assert summary.exit_code == 0
+    exported = tmp_path / "hidden.md"
+    assert exported.exists()
+    parsed = parse_markdown_file(exported)
+    assert parsed.title == ".hidden"
+
+
 def test_export_suffixes_duplicate_titles(tmp_path: Path, fake_keep_client) -> None:
     fake_keep_client._notes["notes/one"] = KeepNote(
         name="notes/one",

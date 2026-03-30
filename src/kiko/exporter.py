@@ -256,7 +256,7 @@ def _sanitize_stem(value: str) -> str:
         "_" if char in INVALID_FILENAME_CHARS or ord(char) < 32 else char
         for char in value
     )
-    sanitized = sanitized.strip().rstrip(".")
+    sanitized = sanitized.strip().strip(".")
     return sanitized or "untitled"
 
 

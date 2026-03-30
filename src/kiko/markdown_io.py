@@ -32,7 +32,10 @@ def extract_footer(text: str) -> tuple[str, FooterMetadata | None]:
     footer_match = FOOTER_RE.fullmatch(lines[-1].strip())
     if footer_match is None:
         return "\n".join(lines), None
-    payload = json.loads(footer_match.group(1))
+    try:
+        payload = json.loads(footer_match.group(1))
+    except json.JSONDecodeError:
+        return "\n".join(lines), None
     footer = FooterMetadata(
         version=int(payload.get("version", 1)),
         keep_name=payload.get("keep_name"),
@@ -214,9 +217,11 @@ def _line_disqualifies_checklist(stripped_line: str) -> bool:
         or stripped_line.startswith(">")
         or stripped_line.startswith("```")
         or stripped_line.startswith("|")
-        or stripped_line.startswith("- ")
-        and "[ ]" not in stripped_line
-        and "[x]" not in stripped_line.lower()
+        or (
+            stripped_line.startswith("- ")
+            and "[ ]" not in stripped_line
+            and "[x]" not in stripped_line.lower()
+        )
     )
 
 

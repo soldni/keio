@@ -260,4 +260,15 @@ def test_status_shows_method(tmp_path: Path) -> None:
     paths.master_token_file.write_text("{}", encoding="utf-8")
     s = auth.status(paths=paths)
     assert s.method == "gkeepapi"
+    # master token exists but no state file → not logged in yet
+    assert s.logged_in is False
+
+
+def test_status_gkeepapi_logged_in_after_login(tmp_path: Path) -> None:
+    paths = _enterprise_paths(tmp_path)
+    auth.save_config(auth.AuthConfig(method="gkeepapi"), paths=paths)
+    paths.master_token_file.write_text("{}", encoding="utf-8")
+    paths.gkeepapi_state_file.write_text("{}", encoding="utf-8")
+    s = auth.status(paths=paths)
+    assert s.method == "gkeepapi"
     assert s.logged_in is True
