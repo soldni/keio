@@ -9,6 +9,8 @@ A Python CLI for importing and exporting Google Keep notes to markdown directori
 KiKo stores sync metadata in an HTML comment footer at the bottom of each exported
 markdown file, enabling conflict detection and incremental syncing.
 
+Fun fact: KiKo stands for "Keep in, Keep out" 😊
+
 ## Installation
 
 ```bash
@@ -29,7 +31,7 @@ pip install "kiko[gkeepapi]"
 
 ## Authentication
 
-`kiko` supports two authentication backends. You must pick one; they cannot be mixed.
+KiKo supports two authentication backends. You must pick one; they cannot be mixed.
 
 ### Option A: Enterprise (official Google Keep API)
 
