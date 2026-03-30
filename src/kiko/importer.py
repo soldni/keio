@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from kiko.client_protocol import KeepClientProtocol
-from kiko.conflicts import remote_is_newer, remote_matches_footer
+from kiko.conflicts import content_hash_matches, remote_is_newer, remote_matches_footer
 from kiko.markdown_io import (
     attach_footer_to_content,
     content_sha256,
@@ -118,6 +118,11 @@ class Importer:
                     remote_note.update_time,
                     footer.keep_update_time,
                 )
+                local_hash = content_sha256(note.raw_content_without_footer)
+                content_changed = not content_hash_matches(
+                    local_hash, footer.content_sha256
+                )
+
                 if not force and not footer_matches:
                     if remote_is_newer(remote_note.update_time, footer.keep_update_time):
                         self._log(f"[{idx}/{total}] Skipped {label} (remote is newer)")
@@ -134,6 +139,16 @@ class Importer:
                             f"Remote note timestamp mismatch for {note.path.name}",
                         )
                     continue
+
+                if not force and not content_changed:
+                    need_images = images and has_images and not self._note_has_attachments(
+                        remote_note
+                    )
+                    if not need_images:
+                        self._log(f"[{idx}/{total}] Unchanged {label}")
+                        summary.increment("unchanged")
+                        continue
+
                 if dry_run:
                     self._log(f"[{idx}/{total}] Would replace {label} ({kind_tag})")
                     summary.increment("replaced")
@@ -230,6 +245,10 @@ class Importer:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _note_has_attachments(note) -> bool:
+        return bool(note.attachments)
 
     def _duplicate_titles(self, notes: list[ParsedMarkdownNote]) -> Counter[str]:
         return Counter(_effective_title(note) for note in notes)
