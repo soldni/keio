@@ -110,6 +110,9 @@ class KeepClient:
         destination.write_bytes(response.content)
         return mime_type
 
+    def sync(self) -> None:
+        pass  # Enterprise client is stateless; each API call is fresh.
+
     def _execute(self, request) -> dict:
         try:
             return request.execute()

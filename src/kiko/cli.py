@@ -27,6 +27,11 @@ DRY_RUN_OPTION = typer.Option(False, "--dry-run")
 FORCE_OPTION = typer.Option(False, "--force")
 CREDENTIALS_OPTION = typer.Option(None, "--credentials")
 METHOD_OPTION = typer.Option(None, "--method", help="enterprise or gkeepapi")
+IMAGES_OPTION = typer.Option(
+    False,
+    "--images",
+    help="Open browser and file explorer for manual image upload per note.",
+)
 
 
 def main() -> None:
@@ -141,6 +146,7 @@ def import_notes(
     dry_run: bool = DRY_RUN_OPTION,
     force: bool = FORCE_OPTION,
     credentials: Path | None = CREDENTIALS_OPTION,
+    images: bool = IMAGES_OPTION,
 ) -> None:
     """Import markdown notes into Google Keep."""
     _run_operation(
@@ -148,6 +154,7 @@ def import_notes(
             directory,
             dry_run=dry_run,
             force=force,
+            images=images,
         )
     )
 

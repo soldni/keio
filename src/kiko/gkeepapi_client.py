@@ -71,6 +71,9 @@ class GkeepApiClient:
         node.trash()
         self._keep.sync()  # type: ignore[union-attr]
 
+    def sync(self) -> None:
+        self._keep.sync()  # type: ignore[union-attr]
+
     def download_attachment(self, attachment: KeepAttachment, destination: Path) -> str:
         blob = self._blob_cache.get(attachment.name)
         if blob is None:

@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import platform
+import select
+import subprocess
+import sys
+import time
+import webbrowser
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -14,6 +20,9 @@ from kiko.markdown_io import (
 )
 from kiko.markdown_model import FooterMetadata, ParsedMarkdownNote
 from kiko.results import OperationSummary
+
+POLL_INTERVAL_SECONDS = 5
+POLL_TIMEOUT_SECONDS = 300
 
 
 def _noop(_msg: str) -> None:
@@ -36,6 +45,7 @@ class Importer:
         *,
         dry_run: bool = False,
         force: bool = False,
+        images: bool = False,
     ) -> OperationSummary:
         summary = OperationSummary()
         if not directory.exists():
@@ -78,11 +88,20 @@ class Importer:
                     f"Skipped duplicate local title `{effective_title}` in {note.path.name}",
                 )
                 continue
-            if note.attachments.has_files:
-                summary.add_issue(
-                    "warning",
-                    f"{note.path.name} has local attachments; importing note content only.",
-                )
+            has_images = note.attachments.has_files
+            if has_images:
+                if images:
+                    summary.add_issue(
+                        "warning",
+                        f"{note.path.name} has local attachments; "
+                        "will assist with manual upload.",
+                    )
+                else:
+                    summary.add_issue(
+                        "warning",
+                        f"{note.path.name} has local attachments; "
+                        "importing note content only.",
+                    )
 
             checklist_items = parse_checklist_markdown(note.body_markdown)
             is_list = checklist_items is not None
@@ -140,6 +159,8 @@ class Importer:
                     effective_title == "",
                 )
                 summary.increment("replaced")
+                if images and has_images and not dry_run:
+                    self._assist_image_upload(new_note.name, note)
                 continue
 
             if effective_title in notes_by_title:
@@ -171,8 +192,44 @@ class Importer:
             )
             notes_by_title.setdefault(effective_title, []).append(created_note.name)
             summary.increment("created")
+            if images and has_images:
+                self._assist_image_upload(created_note.name, note)
 
         return summary
+
+    # ------------------------------------------------------------------
+    # Image upload assist
+    # ------------------------------------------------------------------
+
+    def _assist_image_upload(
+        self,
+        keep_name: str,
+        parsed: ParsedMarkdownNote,
+    ) -> None:
+        n_files = len(parsed.attachments.files)
+        url = _keep_note_url(keep_name)
+        self._log(f"  {n_files} file(s) to upload from {parsed.attachments.directory.name}/")
+        self._log(f"  Opening note in browser: {url}")
+        webbrowser.open(url)
+        _open_file_explorer(parsed.attachments.directory)
+
+        self._log("  Polling for uploads... (press Enter to skip)")
+        uploaded = _wait_for_attachments(
+            self._client,
+            keep_name,
+            n_files,
+            self._log,
+        )
+        if uploaded:
+            found = n_files if uploaded >= n_files else uploaded
+            summary_label = f"{found}/{n_files}"
+            self._log(f"  {summary_label} attachment(s) detected. Continuing.")
+        else:
+            self._log("  Skipped image upload.")
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _duplicate_titles(self, notes: list[ParsedMarkdownNote]) -> Counter[str]:
         return Counter(_effective_title(note) for note in notes)
@@ -204,6 +261,90 @@ class Importer:
             attach_footer_to_content(note.raw_content_without_footer, footer),
             encoding="utf-8",
         )
+
+
+# ---------------------------------------------------------------------------
+# Image upload polling
+# ---------------------------------------------------------------------------
+
+
+def _wait_for_attachments(
+    client: KeepClientProtocol,
+    note_name: str,
+    expected: int,
+    log: Callable[[str], None],
+) -> int:
+    """Poll until the note has >= expected attachments. Returns count found, or 0 if skipped."""
+    deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
+    interactive = sys.stdin.isatty()
+
+    while time.monotonic() < deadline:
+        if interactive and _stdin_ready():
+            sys.stdin.readline()
+            return 0
+
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+        try:
+            client.sync()
+            note = client.get_note(note_name)
+        except Exception:
+            continue
+
+        if note is None:
+            continue
+
+        count = len(note.attachments)
+        if count >= expected:
+            return count
+        if count > 0:
+            log(f"  {count}/{expected} uploaded...")
+
+    log(f"  Timed out after {POLL_TIMEOUT_SECONDS}s.")
+    return 0
+
+
+def _stdin_ready() -> bool:
+    """Check if stdin has input available without blocking."""
+    if sys.platform == "win32":
+        try:
+            import msvcrt
+
+            return msvcrt.kbhit()
+        except ImportError:
+            return False
+    try:
+        return bool(select.select([sys.stdin], [], [], 0)[0])
+    except (ValueError, OSError):
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Platform helpers
+# ---------------------------------------------------------------------------
+
+
+def _keep_note_url(note_name: str) -> str:
+    note_id = note_name.rsplit("/", maxsplit=1)[-1]
+    return f"https://keep.google.com/#NOTE/{note_id}"
+
+
+def _open_file_explorer(path: Path) -> None:
+    system = platform.system()
+    try:
+        if system == "Darwin":
+            subprocess.Popen(["open", str(path)])
+        elif system == "Windows":
+            subprocess.Popen(["explorer", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Misc helpers
+# ---------------------------------------------------------------------------
 
 
 def _display_title(note: ParsedMarkdownNote) -> str:
