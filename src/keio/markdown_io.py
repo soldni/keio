@@ -5,14 +5,14 @@ import json
 import re
 from pathlib import Path
 
-from kiko.markdown_model import (
+from keio.markdown_model import (
     AttachmentInfo,
     ChecklistItem,
     FooterMetadata,
     ParsedMarkdownNote,
 )
 
-FOOTER_RE = re.compile(r"<!--\s*kiko:(\{.*\})\s*-->")
+FOOTER_RE = re.compile(r"<!--\s*(?:keio|kiko):(\{.*\})\s*-->")
 LOCAL_REF_RE = re.compile(r"^(?:!\[[^\]]*]|\[[^\]]+])\(([^)]+)\)$")
 CHECKLIST_RE = re.compile(r"^(?P<indent> {0,2})- \[(?P<checked>[ xX])\] (?P<text>.+)$")
 URL_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
@@ -49,7 +49,7 @@ def extract_footer(text: str) -> tuple[str, FooterMetadata | None]:
 
 def format_footer(footer: FooterMetadata) -> str:
     payload = json.dumps(footer.to_dict(), sort_keys=True, separators=(",", ":"))
-    return f"<!-- kiko:{payload} -->"
+    return f"<!-- keio:{payload} -->"
 
 
 def content_sha256(text_without_footer: str) -> str:

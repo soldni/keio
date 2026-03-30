@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from kiko.client_protocol import KeepClientError
-from kiko.gkeepapi_client import GkeepApiClient
-from kiko.markdown_model import ChecklistItem
+from keio.client_protocol import KeepClientError
+from keio.gkeepapi_client import GkeepApiClient
+from keio.markdown_model import ChecklistItem
 
 # ---------------------------------------------------------------------------
 # Fakes that mimic gkeepapi's interface without importing it
@@ -221,7 +221,7 @@ def test_replace_text_note_creates_new_and_deletes_old() -> None:
 
 
 def test_download_attachment_raises_without_cache() -> None:
-    from kiko.markdown_model import KeepAttachment
+    from keio.markdown_model import KeepAttachment
 
     client = GkeepApiClient(FakeKeep())
     att = KeepAttachment(name="missing/blob/0", mime_types=["image/png"])

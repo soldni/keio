@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kiko.importer import Importer
-from kiko.markdown_io import attach_footer_to_content
-from kiko.markdown_model import FooterMetadata, KeepNote
+from keio.importer import Importer
+from keio.markdown_io import attach_footer_to_content
+from keio.markdown_model import FooterMetadata, KeepNote
 
 
 def test_import_creates_list_note_and_rewrites_footer(tmp_path: Path, fake_keep_client) -> None:
@@ -17,7 +17,7 @@ def test_import_creates_list_note_and_rewrites_footer(tmp_path: Path, fake_keep_
     created = fake_keep_client.list_notes()[0]
     assert created.kind == "list"
     assert created.list_items[0].children[0].text == "two"
-    assert "kiko:" in note_path.read_text(encoding="utf-8")
+    assert "keio:" in note_path.read_text(encoding="utf-8")
 
 
 def test_import_warns_for_attachments_and_imports_body_only(

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kiko"
+name = "keio"
 dynamic = ["version"]
 description = "Google Keep import/export CLI for markdown directories."
 readme = "README.md"
@@ -37,18 +37,18 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/soldni/kiko"
-Repository = "https://github.com/soldni/kiko"
-Issues = "https://github.com/soldni/kiko/issues"
+Homepage = "https://github.com/soldni/keio"
+Repository = "https://github.com/soldni/keio"
+Issues = "https://github.com/soldni/keio/issues"
 
 [project.scripts]
-kiko = "kiko.cli:main"
+keio = "keio.cli:main"
 
 [tool.hatch.version]
-path = "src/kiko/version.py"
+path = "src/keio/version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kiko"]
+packages = ["src/keio"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

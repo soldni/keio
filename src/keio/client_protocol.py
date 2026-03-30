@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from kiko.markdown_model import ChecklistItem, KeepAttachment, KeepNote
+from keio.markdown_model import ChecklistItem, KeepAttachment, KeepNote
 
 
 class KeepClientError(RuntimeError):

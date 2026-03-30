@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kiko.markdown_io import (
+from keio.markdown_io import (
     attach_footer_to_content,
     content_sha256,
     extract_footer,
@@ -11,7 +11,7 @@ from kiko.markdown_io import (
     parse_markdown_file,
     render_checklist_markdown,
 )
-from kiko.markdown_model import FooterMetadata
+from keio.markdown_model import FooterMetadata
 
 
 def test_extract_footer_roundtrip() -> None:
@@ -51,9 +51,9 @@ def test_parse_checklist_markdown_accepts_one_level_children() -> None:
 
 
 def test_extract_footer_ignores_malformed_json() -> None:
-    content, footer = extract_footer("hello\n\n<!-- kiko:{bad json} -->")
+    content, footer = extract_footer("hello\n\n<!-- keio:{bad json} -->")
     # Malformed footer line is preserved as content, not stripped
-    assert content == "hello\n\n<!-- kiko:{bad json} -->"
+    assert content == "hello\n\n<!-- keio:{bad json} -->"
     assert footer is None
 
 

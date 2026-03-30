@@ -9,9 +9,9 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from kiko.attachments import choose_preferred_mime_type
-from kiko.client_protocol import KeepClientError
-from kiko.markdown_model import ChecklistItem, KeepAttachment, KeepNote
+from keio.attachments import choose_preferred_mime_type
+from keio.client_protocol import KeepClientError
+from keio.markdown_model import ChecklistItem, KeepAttachment, KeepNote
 
 __all__ = ["KeepClient", "KeepClientError"]
 

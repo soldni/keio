@@ -4,8 +4,8 @@ from pathlib import Path
 
 import typer
 
-from kiko import __version__
-from kiko.auth import (
+from keio import __version__
+from keio.auth import (
     AuthError,
     AuthMethod,
     build_keep_client,
@@ -14,9 +14,9 @@ from kiko.auth import (
     setup,
     status,
 )
-from kiko.exporter import Exporter
-from kiko.importer import Importer
-from kiko.results import OperationSummary
+from keio.exporter import Exporter
+from keio.importer import Importer
+from keio.results import OperationSummary
 
 app = typer.Typer(no_args_is_help=True)
 auth_app = typer.Typer(no_args_is_help=True)
@@ -39,7 +39,7 @@ def main() -> None:
 
 @app.callback()
 def root_callback() -> None:
-    """kiko Google Keep CLI."""
+    """keio Google Keep CLI."""
 
 
 @app.command("version")
@@ -97,7 +97,7 @@ def auth_setup(
 
     if result.stored_credentials_path is not None:
         typer.echo(f"credentials_path: {result.stored_credentials_path}")
-        typer.echo("next: kiko auth login")
+        typer.echo("next: keio auth login")
         return
 
     for line in result.instructions:

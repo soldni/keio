@@ -1,4 +1,4 @@
-"""kiko package."""
+"""keio package."""
 
 from .version import __version__
 

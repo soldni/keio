@@ -1,8 +1,8 @@
-# KiKo Project Guide for AI Agents
+# KeIO Project Guide for AI Agents
 
-## What is KiKo
+## What is KeIO
 
-KiKo is a CLI tool that bidirectionally syncs Google Keep notes with a local directory of markdown files. It supports two Google Keep backends: the official Enterprise REST API and the unofficial `gkeepapi` library.
+KeIO is a CLI tool that bidirectionally syncs Google Keep notes with a local directory of markdown files. It supports two Google Keep backends: the official Enterprise REST API and the unofficial `gkeepapi` library.
 
 ## Quick Reference
 
@@ -10,18 +10,18 @@ KiKo is a CLI tool that bidirectionally syncs Google Keep notes with a local dir
 uv run pytest                  # Run tests (48 tests, ~0.4s)
 uv run ruff check src/ tests/  # Lint
 uv run ruff format src/ tests/ # Format
-kiko export /path/to/notes     # Export Keep notes to markdown
-kiko import /path/to/notes     # Import markdown back to Keep
-kiko auth setup --method enterprise --credentials /path/to/creds.json
-kiko auth login
-kiko auth status
+keio export /path/to/notes     # Export Keep notes to markdown
+keio import /path/to/notes     # Import markdown back to Keep
+keio auth setup --method enterprise --credentials /path/to/creds.json
+keio auth login
+keio auth status
 ```
 
 ## Architecture Overview
 
 ### Dual Backend Design
 
-KiKo supports two backends behind a shared `KeepClientProtocol` (runtime-checkable Protocol):
+KeIO supports two backends behind a shared `KeepClientProtocol` (runtime-checkable Protocol):
 
 | | Enterprise (`KeepClient`) | Unofficial (`GkeepApiClient`) |
 |---|---|---|
@@ -58,7 +58,7 @@ notes/
 
 Every exported markdown file contains an HTML comment footer as its last line:
 ```
-<!-- kiko:{"content_sha256":"abc...","keep_name":"notes/123","keep_update_time":"2026-03-29T12:00:00Z","synced_at":"2026-03-29T12:01:00Z","title_empty":true,"version":1} -->
+<!-- keio:{"content_sha256":"abc...","keep_name":"notes/123","keep_update_time":"2026-03-29T12:00:00Z","synced_at":"2026-03-29T12:01:00Z","title_empty":true,"version":1} -->
 ```
 
 The footer is the single source of truth for tracking sync state. Fields:
@@ -116,11 +116,11 @@ Google Keep supports exactly ONE level of nesting for list items. The regex enfo
 
 **Export:** Attachments are downloaded to a temp directory, then atomically moved to `<stem>/` alongside the markdown file. Inline markdown references are prepended to the body (`![](stem/image.png)` for images, `[filename](stem/file.ext)` for others).
 
-**Import:** KiKo cannot programmatically upload attachments to Google Keep. When `--images` is passed, it opens the note in the browser and the attachment directory in the file explorer, then polls the API until the expected number of attachments appears (or the user presses Enter to skip, or 5 minutes timeout).
+**Import:** KeIO cannot programmatically upload attachments to Google Keep. When `--images` is passed, it opens the note in the browser and the attachment directory in the file explorer, then polls the API until the expected number of attachments appears (or the user presses Enter to skip, or 5 minutes timeout).
 
 ### Authentication Storage
 
-All auth files live in the platform config directory (`platformdirs`, typically `~/.config/kiko/` on Linux, `~/Library/Application Support/kiko/` on macOS):
+All auth files live in the platform config directory (`platformdirs`, typically `~/.config/keio/` on Linux, `~/Library/Application Support/keio/` on macOS):
 
 | File | Purpose |
 |---|---|
@@ -152,7 +152,7 @@ Pure data classes. No logic except `FooterMetadata.to_dict()` which conditionall
 
 ### `markdown_io.py`
 Parsing and rendering. Key functions:
-- `extract_footer()`: Strips the last line if it matches `<!-- kiko:{...} -->` and parses the JSON
+- `extract_footer()`: Strips the last line if it matches `<!-- keio:{...} -->` and parses the JSON
 - `parse_markdown_file()`: Full parser — extracts title from H1, strips leading attachment references, separates body from footer
 - `parse_checklist_markdown()`: Returns `list[ChecklistItem]` if the body is a valid checklist, `None` if it contains non-checklist elements, or `[]` if empty
 - `content_sha256()`: Hashes content after normalizing newlines and stripping trailing newlines
@@ -178,10 +178,10 @@ Timestamp parsing and comparison helpers. `parse_google_timestamp` handles both 
 `_sanitize_stem()` does not strip leading dots. A note titled `.hidden` becomes `.hidden.md`. On Python 3.12, `Path.glob("*.md")` skips dotfiles, making the file invisible to subsequent export/import operations. On Python 3.13+, glob matches dotfiles, so the file is found — but it's still hidden in file managers (macOS Finder, Linux file managers), which may surprise users.
 
 ### Bug: `extract_footer` crashes on malformed JSON
-If a file's last line matches `<!-- kiko:{...} -->` but contains invalid JSON, `json.loads()` raises an unhandled `JSONDecodeError`. This can happen with hand-edited files.
+If a file's last line matches `<!-- keio:{...} -->` but contains invalid JSON, `json.loads()` raises an unhandled `JSONDecodeError`. This can happen with hand-edited files.
 
 ### Bug: `logout` + `status` inconsistency for gkeepapi
-`logout()` removes `gkeepapi-state.json` but not `master-token.json`. Since `status()` checks `master_token_file.exists()`, `kiko auth status` shows `logged_in: yes` after logout.
+`logout()` removes `gkeepapi-state.json` but not `master-token.json`. Since `status()` checks `master_token_file.exists()`, `keio auth status` shows `logged_in: yes` after logout.
 
 ### Gotcha: Timestamp comparison is string-based
 `remote_matches_footer()` compares timestamps as exact strings. `"2026-03-29T12:00:00.000Z"` != `"2026-03-29T12:00:00Z"` even though they represent the same instant. This can cause unnecessary skips or false conflict detection.

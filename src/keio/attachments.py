@@ -3,7 +3,7 @@ from __future__ import annotations
 import mimetypes
 from pathlib import Path
 
-from kiko.markdown_model import KeepAttachment
+from keio.markdown_model import KeepAttachment
 
 IMAGE_MIME_PREFIX = "image/"
 IMAGE_MIME_PREFERENCE = [

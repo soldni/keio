@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kiko.exporter import Exporter
-from kiko.markdown_io import parse_markdown_file
-from kiko.markdown_model import KeepAttachment, KeepNote
+from keio.exporter import Exporter
+from keio.markdown_io import parse_markdown_file
+from keio.markdown_model import KeepAttachment, KeepNote
 
 
 def test_export_text_note_with_footer(tmp_path: Path, fake_keep_client) -> None:

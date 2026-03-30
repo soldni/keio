@@ -377,7 +377,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kiko"
+name = "keio"
 source = { editable = "." }
 dependencies = [
     { name = "google-api-python-client" },
@@ -409,7 +409,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.0" },
     { name = "typer", specifier = ">=0.17.4" },
 ]
-provides-extras = ["gkeepapi", "dev"]
+provides-extras = ["dev", "gkeepapi"]
 
 [[package]]
 name = "markdown-it-py"

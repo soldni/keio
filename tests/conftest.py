@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from kiko.markdown_model import ChecklistItem, KeepAttachment, KeepNote
+from keio.markdown_model import ChecklistItem, KeepAttachment, KeepNote
 
 
 class FakeKeepClient:

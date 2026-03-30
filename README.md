@@ -1,37 +1,37 @@
 <p align="center">
-    <img src="https://github.com/soldni/kiko/blob/main/assets/kiko-icon.png?raw=true" alt="kiko logo" width="256" />
+    <img src="https://github.com/soldni/keio/blob/main/assets/keio-logo.png?raw=true" alt="keio logo" width="256" />
 </p>
 
-# KiKo
+# KeIO
 
 A Python CLI for importing and exporting Google Keep notes to markdown directories.
 
-KiKo stores sync metadata in an HTML comment footer at the bottom of each exported
+KeIO stores sync metadata in an HTML comment footer at the bottom of each exported
 markdown file, enabling conflict detection and incremental syncing.
 
-Fun fact: KiKo stands for "Keep in, Keep out" 😊
+Fun fact: KeIO stands for "Keep I/O" 😊
 
 ## Installation
 
 ```bash
-pip install kiko
+pip install keio
 ```
 
 Or with `uv`:
 
 ```bash
-uv tool install kiko
+uv tool install keio
 ```
 
 To use the `gkeepapi` backend (see [Authentication](#authentication) below):
 
 ```bash
-pip install "kiko[gkeepapi]"
+pip install "keio[gkeepapi]"
 ```
 
 ## Authentication
 
-KiKo supports two authentication backends. You must pick one; they cannot be mixed.
+KeIO supports two authentication backends. You must pick one; they cannot be mixed.
 
 ### Option A: Enterprise (official Google Keep API)
 
@@ -51,8 +51,8 @@ This backend uses the official REST API with a standard OAuth 2.0 Desktop App fl
 7. Run setup and login:
 
 ```bash
-kiko auth setup --method enterprise --credentials /path/to/credentials.json
-kiko auth login
+keio auth setup --method enterprise --credentials /path/to/credentials.json
+keio auth login
 ```
 
 References:
@@ -90,24 +90,24 @@ r=gpsoauth.exchange_token(e,t,a)
 print(json.dumps({\"email\":e,\"master_token\":r[\"Token\"]}))"'
 ```
 
-**Step 3 -- Pass the JSON to kiko:**
+**Step 3 -- Pass the JSON to keio:**
 
 You can pass the JSON output directly:
 
 ```bash
-kiko auth setup --method gkeepapi --credentials '{"email":"...","master_token":"..."}'
+keio auth setup --method gkeepapi --credentials '{"email":"...","master_token":"..."}'
 ```
 
 Or save it to a file first:
 
 ```bash
-kiko auth setup --method gkeepapi --credentials /path/to/token.json
+keio auth setup --method gkeepapi --credentials /path/to/token.json
 ```
 
 Then verify:
 
 ```bash
-kiko auth login
+keio auth login
 ```
 
 References:
@@ -117,8 +117,8 @@ References:
 ### Other auth commands
 
 ```bash
-kiko auth status     # Show current method and login state
-kiko auth logout     # Remove cached tokens
+keio auth status     # Show current method and login state
+keio auth logout     # Remove cached tokens
 ```
 
 ## Usage
@@ -128,7 +128,7 @@ kiko auth logout     # Remove cached tokens
 Export your Google Keep notes to a local directory:
 
 ```bash
-kiko export /path/to/notes
+keio export /path/to/notes
 ```
 
 - Downloads note text, checklists, and attachments.
@@ -140,7 +140,7 @@ kiko export /path/to/notes
 Import markdown files back to Google Keep:
 
 ```bash
-kiko import /path/to/notes
+keio import /path/to/notes
 ```
 
 - Supports note text and checklist content.
@@ -157,7 +157,7 @@ kiko import /path/to/notes
 The `--images` flag provides a semi-automated workaround:
 
 ```bash
-kiko import /path/to/notes --images
+keio import /path/to/notes --images
 ```
 
 For each note that has local attachments, `--images` will:
@@ -181,8 +181,8 @@ This makes it practical to re-attach images in bulk without hunting for each not
 ## Development
 
 ```bash
-git clone https://github.com/soldni/kiko.git
-cd kiko
+git clone https://github.com/soldni/keio.git
+cd keio
 uv sync --extra dev
 uv run pytest
 ```

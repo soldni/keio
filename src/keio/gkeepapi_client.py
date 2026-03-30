@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kiko.client_protocol import KeepClientError
-from kiko.markdown_model import ChecklistItem, KeepAttachment, KeepNote
+from keio.client_protocol import KeepClientError
+from keio.markdown_model import ChecklistItem, KeepAttachment, KeepNote
 
 
 class GkeepApiClient:

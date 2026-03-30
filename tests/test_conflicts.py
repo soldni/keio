@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kiko.conflicts import remote_matches_footer
+from keio.conflicts import remote_matches_footer
 
 
 def test_remote_matches_footer_exact() -> None:

@@ -10,16 +10,16 @@ from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
-from kiko.client_protocol import KeepClientProtocol
-from kiko.conflicts import content_hash_matches, remote_is_newer, remote_matches_footer
-from kiko.markdown_io import (
+from keio.client_protocol import KeepClientProtocol
+from keio.conflicts import content_hash_matches, remote_is_newer, remote_matches_footer
+from keio.markdown_io import (
     attach_footer_to_content,
     content_sha256,
     parse_checklist_markdown,
     parse_markdown_file,
 )
-from kiko.markdown_model import FooterMetadata, ParsedMarkdownNote
-from kiko.results import OperationSummary
+from keio.markdown_model import FooterMetadata, ParsedMarkdownNote
+from keio.results import OperationSummary
 
 POLL_INTERVAL_SECONDS = 5
 POLL_TIMEOUT_SECONDS = 300

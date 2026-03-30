@@ -4,9 +4,9 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from kiko.auth import AuthStatus, SetupResult
-from kiko.cli import app
-from kiko.results import OperationSummary
+from keio.auth import AuthStatus, SetupResult
+from keio.cli import app
+from keio.results import OperationSummary
 
 runner = CliRunner()
 
@@ -18,7 +18,7 @@ def test_auth_status_command(monkeypatch) -> None:
         credentials_path="/tmp/creds",
         method="enterprise",
     )
-    monkeypatch.setattr("kiko.cli.status", stub_status)
+    monkeypatch.setattr("keio.cli.status", stub_status)
 
     result = runner.invoke(app, ["auth", "status"])
 
@@ -44,8 +44,8 @@ def test_export_command_returns_summary_exit_code(monkeypatch, tmp_path: Path) -
             summary.add_issue("warning", "test warning")
             return summary
 
-    monkeypatch.setattr("kiko.cli._build_client", lambda credentials: object())
-    monkeypatch.setattr("kiko.cli.Exporter", StubExporter)
+    monkeypatch.setattr("keio.cli._build_client", lambda credentials: object())
+    monkeypatch.setattr("keio.cli.Exporter", StubExporter)
 
     result = runner.invoke(app, ["export", str(tmp_path)])
 
@@ -55,7 +55,7 @@ def test_export_command_returns_summary_exit_code(monkeypatch, tmp_path: Path) -
 
 def test_auth_setup_enterprise_prints_stored_credentials(monkeypatch) -> None:
     monkeypatch.setattr(
-        "kiko.cli.setup",
+        "keio.cli.setup",
         lambda method, credentials_path, credentials_json: SetupResult(
             stored_credentials_path=Path("/tmp/credentials.json"),
         ),
@@ -69,7 +69,7 @@ def test_auth_setup_enterprise_prints_stored_credentials(monkeypatch) -> None:
 
 def test_auth_setup_prints_manual_steps(monkeypatch) -> None:
     monkeypatch.setattr(
-        "kiko.cli.setup",
+        "keio.cli.setup",
         lambda method, credentials_path, credentials_json: SetupResult(
             instructions=[
                 "The official Google Keep API requires a Google Workspace Enterprise subscription.",
@@ -86,7 +86,7 @@ def test_auth_setup_prints_manual_steps(monkeypatch) -> None:
 
 def test_auth_setup_gkeepapi_prints_instructions(monkeypatch) -> None:
     monkeypatch.setattr(
-        "kiko.cli.setup",
+        "keio.cli.setup",
         lambda method, credentials_path, credentials_json: SetupResult(
             instructions=["gkeepapi uses the unofficial mobile Google Keep API."],
         ),
@@ -106,7 +106,7 @@ def test_auth_setup_invalid_method() -> None:
 
 def test_auth_status_shows_method(monkeypatch) -> None:
     monkeypatch.setattr(
-        "kiko.cli.status",
+        "keio.cli.status",
         lambda: AuthStatus(
             logged_in=False,
             token_path=Path("/tmp/t"),

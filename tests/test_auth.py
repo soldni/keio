@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from kiko import auth
+from keio import auth
 
 
 class FakeCredentials:

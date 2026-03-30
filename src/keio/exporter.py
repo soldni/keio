@@ -6,23 +6,23 @@ from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
-from kiko.attachments import (
+from keio.attachments import (
     attachment_filename,
     choose_preferred_mime_type,
     is_image_attachment,
     markdown_reference,
 )
-from kiko.client_protocol import KeepClientError, KeepClientProtocol
-from kiko.conflicts import content_hash_matches
-from kiko.markdown_io import (
+from keio.client_protocol import KeepClientError, KeepClientProtocol
+from keio.conflicts import content_hash_matches
+from keio.markdown_io import (
     content_sha256,
     parse_markdown_file,
     render_checklist_markdown,
     render_markdown_content,
     render_markdown_document,
 )
-from kiko.markdown_model import FooterMetadata, KeepAttachment, KeepNote, ParsedMarkdownNote
-from kiko.results import OperationSummary
+from keio.markdown_model import FooterMetadata, KeepAttachment, KeepNote, ParsedMarkdownNote
+from keio.results import OperationSummary
 
 INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 
@@ -174,7 +174,7 @@ class Exporter:
         if not attachments:
             return [], None
 
-        temp_dir = Path(tempfile.mkdtemp(prefix=f".kiko-{stem}-", dir=directory))
+        temp_dir = Path(tempfile.mkdtemp(prefix=f".keio-{stem}-", dir=directory))
         image_index = 0
         attachment_index = 0
         markdown_lines: list[str] = []
@@ -218,7 +218,7 @@ class Exporter:
             "w",
             encoding="utf-8",
             dir=destination.parent,
-            prefix=".kiko-",
+            prefix=".keio-",
             suffix=".md",
             delete=False,
         ) as handle:

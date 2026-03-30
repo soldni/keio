@@ -65,7 +65,7 @@ class SetupResult:
 
 
 def default_paths() -> AppPaths:
-    dirs = PlatformDirs(appname="kiko", appauthor=False)
+    dirs = PlatformDirs(appname="keio", appauthor=False)
     config_dir = Path(dirs.user_config_dir)
     return AppPaths(
         config_dir=config_dir,
@@ -227,7 +227,7 @@ def get_credentials(
             _save_enterprise_credentials(credentials, token_file)
             return credentials
     if not interactive:
-        raise AuthError("No valid OAuth token found. Run `kiko auth login` first.")
+        raise AuthError("No valid OAuth token found. Run `keio auth login` first.")
     return _enterprise_login(credentials_path, paths=app_paths)
 
 
@@ -260,7 +260,7 @@ def _build_enterprise_client(
     interactive: bool,
     paths: AppPaths,
 ) -> object:
-    from kiko.keep_client import KeepClient
+    from keio.keep_client import KeepClient
 
     credentials = get_credentials(
         paths=paths,
@@ -277,7 +277,7 @@ def _build_gkeepapi_client(
 ) -> object:
     import gkeepapi as gkapi
 
-    from kiko.gkeepapi_client import GkeepApiClient
+    from keio.gkeepapi_client import GkeepApiClient
 
     token_data = _load_master_token(paths)
     log(f"Authenticating as {token_data['email']}...")
@@ -467,10 +467,10 @@ def manual_enterprise_instructions(paths: AppPaths) -> list[str]:
         ),
         (
             f"8. Save the downloaded file as `{paths.bundled_credentials_file}` "
-            "or rerun `kiko auth setup --method enterprise "
+            "or rerun `keio auth setup --method enterprise "
             "--credentials /path/to/credentials.json`."
         ),
-        "9. Then run `kiko auth login`.",
+        "9. Then run `keio auth login`.",
         "",
         "Reference: https://developers.google.com/workspace/guides/create-credentials",
         "Reference: https://developers.google.com/workspace/guides/enable-apis",
@@ -503,13 +503,13 @@ def manual_gkeepapi_instructions(paths: AppPaths) -> list[str]:
         "Step 2 - Get a master token (outputs JSON):",
         f"  {docker_cmd}",
         "",
-        "Step 3 - Pass the JSON output directly to kiko:",
-        "  kiko auth setup --method gkeepapi --credentials '{...json from step 2...}'",
+        "Step 3 - Pass the JSON output directly to keio:",
+        "  keio auth setup --method gkeepapi --credentials '{...json from step 2...}'",
         "",
         "  Or save it to a file and pass the path:",
-        "  kiko auth setup --method gkeepapi --credentials /path/to/token.json",
+        "  keio auth setup --method gkeepapi --credentials /path/to/token.json",
         "",
-        "Then run `kiko auth login` to verify the token works.",
+        "Then run `keio auth login` to verify the token works.",
         "",
         "Reference: https://github.com/simon-weber/gpsoauth#alternative-flow",
         "Reference: https://gkeepapi.readthedocs.io/en/latest/",
@@ -568,7 +568,7 @@ def _load_master_token(paths: AppPaths) -> dict[str, str]:
     if not paths.master_token_file.exists():
         raise AuthError(
             "No master token file found. "
-            "Run `kiko auth setup --method gkeepapi --credentials /path/to/token.json` first."
+            "Run `keio auth setup --method gkeepapi --credentials /path/to/token.json` first."
         )
     try:
         data = json.loads(paths.master_token_file.read_text(encoding="utf-8"))
