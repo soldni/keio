@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 
 from kiko.attachments import (
@@ -11,8 +12,8 @@ from kiko.attachments import (
     is_image_attachment,
     markdown_reference,
 )
+from kiko.client_protocol import KeepClientError, KeepClientProtocol
 from kiko.conflicts import content_hash_matches
-from kiko.keep_client import KeepClient, KeepClientError
 from kiko.markdown_io import (
     content_sha256,
     parse_markdown_file,
@@ -25,10 +26,19 @@ from kiko.results import OperationSummary
 
 INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 
+def _noop(_msg: str) -> None:
+    pass
+
 
 class Exporter:
-    def __init__(self, client: KeepClient) -> None:
+    def __init__(
+        self,
+        client: KeepClientProtocol,
+        *,
+        log: Callable[[str], None] = _noop,
+    ) -> None:
         self._client = client
+        self._log = log
 
     def export_directory(
         self,
@@ -43,15 +53,20 @@ class Exporter:
         elif not directory.exists():
             summary.increment("planned_directory_creations")
 
+        self._log("Indexing local directory...")
         local_index = self._build_local_index(directory, summary)
         if summary.fatal:
             return summary
 
+        self._log("Fetching remote notes...")
         remote_notes = self._client.list_notes()
+        self._log(f"Found {len(remote_notes)} remote note(s).")
         stems = [self._preferred_stem(note) for note in remote_notes]
         collisions = Counter(stems)
 
-        for note in remote_notes:
+        total = len(remote_notes)
+        for idx, note in enumerate(remote_notes, 1):
+            label = f'"{note.title}"' if note.title else f"(untitled {_short_id(note.name)})"
             preferred_stem = self._preferred_stem(note)
             if collisions[preferred_stem] > 1:
                 preferred_stem = f"{preferred_stem} [{_short_id(note.name)}]"
@@ -61,6 +76,7 @@ class Exporter:
                 current_hash = content_sha256(tracked.raw_content_without_footer)
                 expected_hash = tracked.footer.content_sha256 if tracked.footer else None
                 if not content_hash_matches(current_hash, expected_hash):
+                    self._log(f"[{idx}/{total}] Skipped {label} (local edit)")
                     summary.increment("skipped")
                     summary.add_issue(
                         "skip",
@@ -81,6 +97,7 @@ class Exporter:
                     attachments=note.attachments,
                 )
             except KeepClientError as error:
+                self._log(f"[{idx}/{total}] Skipped {label} (attachment error)")
                 summary.increment("skipped")
                 summary.add_issue("skip", f"Attachment download failed for {note.name}: {error}")
                 continue
@@ -109,11 +126,13 @@ class Exporter:
             )
 
             if dry_run:
+                self._log(f"[{idx}/{total}] Would export {label}")
                 summary.increment("exported")
                 if attachment_dir is not None:
                     shutil.rmtree(attachment_dir)
                 continue
 
+            self._log(f"[{idx}/{total}] Exporting {label}")
             self._write_note(
                 destination=destination,
                 document=document,

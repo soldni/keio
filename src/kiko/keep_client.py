@@ -10,11 +10,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from kiko.attachments import choose_preferred_mime_type
+from kiko.client_protocol import KeepClientError
 from kiko.markdown_model import ChecklistItem, KeepAttachment, KeepNote
 
-
-class KeepClientError(RuntimeError):
-    """Keep API failure."""
+__all__ = ["KeepClient", "KeepClientError"]
 
 
 class KeepClient:
@@ -110,6 +109,9 @@ class KeepClient:
             raise KeepClientError(message) from error
         destination.write_bytes(response.content)
         return mime_type
+
+    def sync(self) -> None:
+        pass  # Enterprise client is stateless; each API call is fresh.
 
     def _execute(self, request) -> dict:
         try:

@@ -59,6 +59,9 @@ class FakeKeepClient:
     def delete_note(self, name: str) -> None:
         self._notes.pop(name, None)
 
+    def sync(self) -> None:
+        pass
+
     def download_attachment(self, attachment: KeepAttachment, destination) -> str:
         mime_type = attachment.mime_types[0]
         destination.write_bytes(f"attachment:{attachment.name}".encode())
