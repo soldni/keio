@@ -138,6 +138,8 @@ class Importer:
                             "skip",
                             f"Remote note timestamp mismatch for {note.path.name}",
                         )
+                    if images and has_images:
+                        self._assist_image_upload(remote_note.name, note)
                     continue
 
                 if not force and not content_changed:
