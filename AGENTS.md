@@ -1,5 +1,7 @@
 # KeIO Project Guide for AI Agents
 
+**NOTE:** `CLAUDE.md` and `AGENTS.md` are hard-linked (same file). Edits to either one automatically apply to both. Do not delete and recreate either file — that would break the hard link. Always edit in place.
+
 ## What is KeIO
 
 KeIO is a CLI tool that bidirectionally syncs Google Keep notes with a local directory of markdown files. It supports two Google Keep backends: the official Enterprise REST API and the unofficial `gkeepapi` library.
@@ -7,7 +9,7 @@ KeIO is a CLI tool that bidirectionally syncs Google Keep notes with a local dir
 ## Quick Reference
 
 ```bash
-uv run pytest                  # Run tests (48 tests, ~0.4s)
+uv run pytest                  # Run tests (~0.3s)
 uv run ruff check src/ tests/  # Lint
 uv run ruff format src/ tests/ # Format
 keio export /path/to/notes     # Export Keep notes to markdown
@@ -81,7 +83,7 @@ The footer is the single source of truth for tracking sync state. Fields:
 
 **During import:**
 1. For each local file with a footer pointing to a remote note:
-   - Compare `keep_update_time` in footer vs remote `updateTime` (exact string match)
+   - Compare `keep_update_time` in footer vs remote `updateTime` (string match with datetime fallback)
    - If they differ: the remote was modified since last sync → skip (unless `--force`)
    - If they match: compare local content hash to footer hash
    - If content unchanged → nothing to do
@@ -152,7 +154,7 @@ Pure data classes. No logic except `FooterMetadata.to_dict()` which conditionall
 
 ### `markdown_io.py`
 Parsing and rendering. Key functions:
-- `extract_footer()`: Strips the last line if it matches `<!-- keio:{...} -->` and parses the JSON
+- `extract_footer()`: Strips the last line if it matches `<!-- keio:{...} -->` and parses the JSON. Returns `None` footer if JSON is malformed.
 - `parse_markdown_file()`: Full parser — extracts title from H1, strips leading attachment references, separates body from footer
 - `parse_checklist_markdown()`: Returns `list[ChecklistItem]` if the body is a valid checklist, `None` if it contains non-checklist elements, or `[]` if empty
 - `content_sha256()`: Hashes content after normalizing newlines and stripping trailing newlines
@@ -167,24 +169,12 @@ Main import logic. Parses all local `.md` files, checks for duplicate titles and
 MIME type preference ordering and filename generation. Images prefer PNG > JPEG > HEIC > TIFF > WebP > GIF. Filenames: `image.png`, `image_2.png`, `attachment.pdf`, `attachment_2.pdf`.
 
 ### `conflicts.py`
-Timestamp parsing and comparison helpers. `parse_google_timestamp` handles both `Z` and `+00:00` suffixes. `remote_matches_footer` compares timestamps as exact strings (not parsed datetimes).
+Timestamp parsing and comparison helpers. `parse_google_timestamp` handles both `Z` and `+00:00` suffixes. `remote_matches_footer` tries exact string comparison first (fast path), then falls back to parsing both timestamps as datetimes to handle formatting differences like fractional seconds.
 
 ### `results.py`
 `OperationSummary` aggregates counters and issues. Exit codes: 0 = clean success, 1 = fatal error, 2 = completed with warnings/skips.
 
 ## Known Issues & Gotchas
-
-### Bug: Leading-dot titles create hidden/invisible files
-`_sanitize_stem()` does not strip leading dots. A note titled `.hidden` becomes `.hidden.md`. On Python 3.12, `Path.glob("*.md")` skips dotfiles, making the file invisible to subsequent export/import operations. On Python 3.13+, glob matches dotfiles, so the file is found — but it's still hidden in file managers (macOS Finder, Linux file managers), which may surprise users.
-
-### Bug: `extract_footer` crashes on malformed JSON
-If a file's last line matches `<!-- keio:{...} -->` but contains invalid JSON, `json.loads()` raises an unhandled `JSONDecodeError`. This can happen with hand-edited files.
-
-### Bug: `logout` + `status` inconsistency for gkeepapi
-`logout()` removes `gkeepapi-state.json` but not `master-token.json`. Since `status()` checks `master_token_file.exists()`, `keio auth status` shows `logged_in: yes` after logout.
-
-### Gotcha: Timestamp comparison is string-based
-`remote_matches_footer()` compares timestamps as exact strings. `"2026-03-29T12:00:00.000Z"` != `"2026-03-29T12:00:00Z"` even though they represent the same instant. This can cause unnecessary skips or false conflict detection.
 
 ### Gotcha: replace_*_note is not atomic
 Both backends implement replace as create-then-delete. If create succeeds but delete fails, you get a duplicate note. This is by design (avoids data loss from delete-first) but can cause duplicates in error scenarios.
@@ -212,3 +202,54 @@ Identical implementations exist in both `exporter.py` and `importer.py`.
 Tests use a `FakeKeepClient` (in `conftest.py`) that stores notes in a dict and generates sequential names/timestamps. The `test_gkeepapi_client.py` tests use separate fakes (`FakeKeep`, `FakeNote`, `FakeList`) that mimic `gkeepapi`'s interface, with a monkeypatch fixture that makes `isinstance` checks work without importing the real `gkeepapi.node` module.
 
 All tests are deterministic and use `tmp_path` for filesystem isolation.
+
+## Release Notes
+
+Release notes live in `release-notes/<version>.md`. When making commits that add features, fix bugs, or introduce meaningful changes, update the release notes file for the current development version.
+
+### Format
+
+Each release notes file follows this structure:
+
+```
+# Release Notes (<version>)
+
+## New Features
+- Description of new commands or capabilities.
+
+## Changes
+- Breaking changes, dependency updates, or behavioral changes.
+
+## Fixes
+- Bug fixes.
+
+## Housekeeping
+- Code refactors, CI changes, tooling updates, or other non-user-facing work.
+
+
+**Full Changelog**: https://github.com/soldni/keio/compare/<previous-tag>...<current-tag>
+```
+
+Only include sections that have entries. Each bullet should be concise — one or two sentences max. Use backticks for command names, flags, and code references.
+
+### When to update
+
+Update the release notes file as part of the same commit that introduces the change. If no release notes file exists yet for the current version, create one. The current version can be found in `src/keio/version.py`; the matching release notes file will be named `release-notes/<version>.md`.
+
+## Commit Guidelines
+
+### Update release notes
+
+You should update the release notes file in `release-notes/` matching the current version of this software. You can find current version at `src/keio/version.py`; the matching release notes file will be named `<version>.md`. If it doesn't exist, create it.
+
+### Sign-off
+
+All commits made by AI agents (Claude, Codex, etc.) **must** include a sign-off line with the model name and version:
+
+```
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: GPT-4.1 <noreply@openai.com>
+Co-Authored-By: Gemini 2.5 Pro <noreply@google.com>
+```
+
+Use the actual model name and version that generated the code. This applies to all AI models, not just Claude.

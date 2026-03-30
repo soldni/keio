@@ -1,5 +1,7 @@
 # KeIO Project Guide for AI Agents
 
+**NOTE:** `CLAUDE.md` and `AGENTS.md` are hard-linked (same file). Edits to either one automatically apply to both. Do not delete and recreate either file — that would break the hard link. Always edit in place. If you notice the hard link is broken (different inodes from `ls -li CLAUDE.md AGENTS.md`), fix it by running `rm AGENTS.md && ln CLAUDE.md AGENTS.md`.
+
 ## What is KeIO
 
 KeIO is a CLI tool that bidirectionally syncs Google Keep notes with a local directory of markdown files. It supports two Google Keep backends: the official Enterprise REST API and the unofficial `gkeepapi` library.
@@ -200,3 +202,54 @@ Identical implementations exist in both `exporter.py` and `importer.py`.
 Tests use a `FakeKeepClient` (in `conftest.py`) that stores notes in a dict and generates sequential names/timestamps. The `test_gkeepapi_client.py` tests use separate fakes (`FakeKeep`, `FakeNote`, `FakeList`) that mimic `gkeepapi`'s interface, with a monkeypatch fixture that makes `isinstance` checks work without importing the real `gkeepapi.node` module.
 
 All tests are deterministic and use `tmp_path` for filesystem isolation.
+
+## Release Notes
+
+Release notes live in `release-notes/<version>.md`. When making commits that add features, fix bugs, or introduce meaningful changes, update the release notes file for the current development version.
+
+### Format
+
+Each release notes file follows this structure:
+
+```
+# Release Notes (<version>)
+
+## New Features
+- Description of new commands or capabilities.
+
+## Changes
+- Breaking changes, dependency updates, or behavioral changes.
+
+## Fixes
+- Bug fixes.
+
+## Housekeeping
+- Code refactors, CI changes, tooling updates, or other non-user-facing work.
+
+
+**Full Changelog**: https://github.com/soldni/keio/compare/<previous-tag>...<current-tag>
+```
+
+Only include sections that have entries. Each bullet should be concise — one or two sentences max. Use backticks for command names, flags, and code references.
+
+### When to update
+
+Update the release notes file as part of the same commit that introduces the change. If no release notes file exists yet for the current version, create one. The current version can be found in `src/keio/version.py`; the matching release notes file will be named `release-notes/<version>.md`.
+
+## Commit Guidelines
+
+### Update release notes
+
+You should update the release notes file in `release-notes/` matching the current version of this software. You can find current version at `src/keio/version.py`; the matching release notes file will be named `<version>.md`. If it doesn't exist, create it.
+
+### Sign-off
+
+All commits made by AI agents (Claude, Codex, etc.) **must** include a sign-off line with the model name and version:
+
+```
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: GPT-4.1 <noreply@openai.com>
+Co-Authored-By: Gemini 2.5 Pro <noreply@google.com>
+```
+
+Use the actual model name and version that generated the code. This applies to all AI models, not just Claude.
