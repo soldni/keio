@@ -272,3 +272,19 @@ def test_status_gkeepapi_logged_in_after_login(tmp_path: Path) -> None:
     s = auth.status(paths=paths)
     assert s.method == "gkeepapi"
     assert s.logged_in is True
+
+
+def test_status_gkeepapi_shows_state_file_as_token_path(tmp_path: Path) -> None:
+    """gkeepapi status should report gkeepapi-state.json, not oauth-token.json."""
+    paths = _enterprise_paths(tmp_path)
+    auth.save_config(auth.AuthConfig(method="gkeepapi"), paths=paths)
+    s = auth.status(paths=paths)
+    assert s.token_path == paths.gkeepapi_state_file
+    assert s.token_path != paths.token_file
+
+
+def test_status_enterprise_shows_oauth_token_path(tmp_path: Path) -> None:
+    paths = _enterprise_paths(tmp_path)
+    auth.save_config(auth.AuthConfig(method="enterprise"), paths=paths)
+    s = auth.status(paths=paths)
+    assert s.token_path == paths.token_file

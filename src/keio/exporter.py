@@ -84,6 +84,11 @@ class Exporter:
                     )
                     continue
 
+            if dry_run:
+                self._log(f"[{idx}/{total}] Would export {label}")
+                summary.increment("exported")
+                continue
+
             attachment_lines: list[str]
             markdown_body = (
                 note.text_body
@@ -124,13 +129,6 @@ class Exporter:
                 body_markdown=markdown_body,
                 footer=footer,
             )
-
-            if dry_run:
-                self._log(f"[{idx}/{total}] Would export {label}")
-                summary.increment("exported")
-                if attachment_dir is not None:
-                    shutil.rmtree(attachment_dir)
-                continue
 
             self._log(f"[{idx}/{total}] Exporting {label}")
             self._write_note(

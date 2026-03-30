@@ -1,6 +1,6 @@
 # KeIO Project Guide for AI Agents
 
-**NOTE:** `CLAUDE.md` and `AGENTS.md` are hard-linked (same file). Edits to either one automatically apply to both. Do not delete and recreate either file — that would break the hard link. Always edit in place.
+**NOTE:** `CLAUDE.md` and `AGENTS.md` are hard-linked (same file). Edits to either one automatically apply to both. Do not delete and recreate either file — that would break the hard link. Always edit in place. If you notice the hard link is broken (different inodes from `ls -li CLAUDE.md AGENTS.md`), fix it by running `rm AGENTS.md && ln CLAUDE.md AGENTS.md`.
 
 ## What is KeIO
 
@@ -173,6 +173,234 @@ Timestamp parsing and comparison helpers. `parse_google_timestamp` handles both 
 
 ### `results.py`
 `OperationSummary` aggregates counters and issues. Exit codes: 0 = clean success, 1 = fatal error, 2 = completed with warnings/skips.
+
+## Implementation Deep Dive
+
+This section documents non-obvious implementation details, invariants, and decision logic that are not immediately apparent from reading the code. Future agents should consult this when modifying core logic.
+
+### Export Decision Tree (per remote note)
+
+```
+For each remote note:
+  1. Compute preferred_stem (sanitized title, or "untitled-{short_id}")
+  2. If title collision with another remote note → append " [{short_id}]" to stem
+  3. Look up note.name in local index (by footer keep_name)
+  4. If tracked locally AND not --force:
+     a. Compute content_sha256 of current local file (minus footer)
+     b. Compare to footer's stored content_sha256
+     c. If DIFFERENT → skip (local edit detected)
+     d. If SAME → proceed to overwrite
+  5. If --dry-run → log "Would export" and continue (NO attachment download)
+  6. Download attachments to temp dir inside target directory
+  7. Render markdown document with footer containing new hash
+  8. Atomic write: temp file → rename to destination
+  9. If tracked file was at a different path (title changed):
+     → delete old .md file and old attachment directory
+```
+
+Key invariants:
+- The content hash stored in the footer is computed on the **rendered** content (title + attachments + body), NOT the raw note body alone. This means the hash covers the H1 heading line and inline attachment references.
+- `--dry-run` returns early before any network I/O for attachments. It only requires the initial `list_notes()` call and local index scan.
+- The local index is built from `*.md` files in the **top-level** directory only (no recursion). Subdirectories are used for attachments, not nested notes.
+
+### Import Decision Tree (per local file)
+
+```
+Pre-checks (before per-file loop):
+  1. Parse all *.md files in directory
+  2. Check for duplicate keep_names in footers → fatal error if found
+  3. Count duplicate titles ONLY among notes without keep_name (create candidates)
+  4. Fetch all remote notes, build notes_by_title index
+
+For each local file:
+  A. Does it have a footer with keep_name AND that remote note exists?
+     YES → REPLACE PATH:
+       a. Check remote timestamp vs footer timestamp
+          - If different AND not --force:
+            - If remote is newer → skip "remote is newer"
+            - Else → skip "timestamp mismatch"
+          - If same → continue
+       b. Check if local content hash changed vs footer hash
+          - If same AND not --force → "unchanged" (nothing to do)
+       c. Replace remote note (create new + delete old)
+       d. Rewrite local footer with new keep_name and timestamp
+
+     NO → CREATE PATH:
+       a. Is this title duplicated among other create candidates? → skip
+       b. Does a remote note with this title already exist? → skip
+       c. Create new remote note
+       d. Write footer to local file
+       e. Add title to notes_by_title (prevents later files creating dupes)
+```
+
+Key invariants:
+- The duplicate title check applies ONLY to notes going through the create path. Tracked notes (with keep_name) bypass it entirely. This is critical for untitled notes: multiple tracked notes with `title_empty: true` all have effective_title="" but must still be individually replaceable.
+- A tracked note whose remote was deleted (get_note returns None) falls through to the create path. It is then subject to the same title-collision checks as new notes.
+- After creating a note, its title is added to `notes_by_title` to prevent later files in the same batch from creating duplicates.
+
+### Content Hash Computation
+
+The hash serves as a "has the user edited this file since last sync?" check.
+
+```python
+content_sha256(text_without_footer):
+  1. normalize_newlines(text)     # \r\n and \r → \n
+  2. .rstrip("\n")                # strip trailing newlines
+  3. .encode("utf-8")
+  4. SHA-256 hex digest
+```
+
+Important: the hash is computed on `raw_content_without_footer` — the full file content minus the footer line and its surrounding whitespace. This includes the H1 title line, inline attachment references, and body. It does NOT include the footer itself.
+
+During export, the hash is computed on the **rendered** content from `render_markdown_content()`. During import, the hash is computed on the **parsed** content from `extract_footer()`. These produce the same string because:
+- `render_markdown_content` joins segments with `\n\n` and strips trailing `\n`
+- `extract_footer` strips the footer line and trailing empty lines, then `.rstrip("\n")`
+- Both normalize to the same form
+
+If a user adds trailing whitespace, extra blank lines between sections, or edits the H1, the hash changes and the file is treated as locally modified. This is intentional.
+
+### Footer Lifecycle
+
+1. **Created during export**: Contains keep_name, keep_update_time, content_sha256 of rendered content, synced_at timestamp, and title_empty flag.
+2. **Read during import**: Parsed to determine keep_name (for remote lookup), keep_update_time (for conflict detection), content_sha256 (for local-edit detection), and title_empty (for title resolution).
+3. **Rewritten after import create/replace**: New footer has the NEW note's keep_name and update_time (since replace creates a new note), fresh content_sha256 and synced_at, and title_empty based on the effective title sent to Keep.
+4. **Read during next export**: Local index maps keep_name → file. Hash comparison detects local edits.
+
+The footer uses `<!-- keio:{json} -->` format. For backward compatibility, `<!-- kiko:{json} -->` is also parsed (the project was renamed from KiKo to KeIO). New footers always use `keio:`.
+
+`FooterMetadata.to_dict()` omits falsy fields to keep footers compact. This means:
+- `keep_name=None` → field absent
+- `title_empty=False` → field absent (only `True` is stored)
+- `content_sha256=None` → field absent
+
+### Attachment Reference Parsing
+
+When parsing a markdown file, leading attachment references (between the H1 title and the body) are stripped from the body and stored separately. This prevents round-trip drift when a note is exported (references prepended) and then imported.
+
+The parser in `_consume_leading_attachment_lines()`:
+1. Starts after the title (and optional blank line after title)
+2. Each line is tested: is it a local file reference? (`![](path)` or `[name](path)` where path has no URL scheme)
+3. Consecutive reference lines are collected as `inline_references`
+4. A blank line after references ends the block
+5. Everything after is the body
+
+"Local reference" means the target path has no URL scheme (`http:`, `https:`, etc.). This distinguishes `![](note/image.png)` (local attachment → strip) from `![](https://example.com/img.png)` (external link → keep in body).
+
+If a file has no leading attachment references, the body starts immediately after the title. The `_consume_leading_attachment_lines` function handles this by returning the same cursor position if the first non-blank line isn't a reference.
+
+### Effective Title Resolution (`_effective_title`)
+
+```python
+def _effective_title(note: ParsedMarkdownNote) -> str:
+    if note.footer and note.footer.title_empty and not note.title_from_h1:
+        return ""
+    return note.title
+```
+
+This encodes the following precedence:
+1. If the file has an H1 heading → that's the title (regardless of footer flags)
+2. If footer says `title_empty=True` and no H1 → empty string (preserve untitled status)
+3. Otherwise → `note.title` (which defaults to the filename stem if no H1)
+
+Scenario matrix:
+
+| H1 present? | footer.title_empty | Result |
+|---|---|---|
+| Yes | any | H1 text |
+| No | True | `""` (empty — note stays untitled in Keep) |
+| No | False/absent | filename stem |
+| No | no footer | filename stem |
+
+### gkeepapi Child Item Handling
+
+The `gkeepapi` library's `createList()` only accepts flat `(text, checked)` tuples — no nesting. To create child items:
+
+1. Call `keep.createList(title, flat_items)` with only top-level items
+2. Take a snapshot of `node.items` (before adding children)
+3. For each source item that has children:
+   - `node.add(child.text, child.checked)` adds the child as a new top-level item
+   - `child_node.indent(parent)` moves it under the parent
+4. Call `keep.sync()` to push changes
+
+The snapshot at step 2 is important: `node.add()` appends to `node.items`, so without the snapshot, the enumeration index would drift as children are added.
+
+### Filename Sanitization
+
+`_sanitize_stem()` in `exporter.py`:
+1. Replace characters in `<>:"/\\|?*` and control chars (ord < 32) with `_`
+2. Strip leading/trailing whitespace
+3. Strip leading/trailing dots (prevents hidden files on Unix, reserved names on Windows)
+4. If result is empty → fall back to `"untitled"`
+
+Edge cases:
+- Title `"..."` → sanitized to `""` → falls back to `"untitled"`
+- Title `".hidden"` → sanitized to `"hidden"` (dots stripped)
+- Title with path separators like `"A/B"` → sanitized to `"A_B"`
+- The H1 heading inside the file preserves the original title, even if the filename differs
+
+There is no truncation for long titles. Extremely long titles (>255 chars) may fail on some filesystems.
+
+### Replace Operation Semantics
+
+Both backends implement `replace_*_note` as **create-then-delete**:
+1. Create a new note with the updated content → get new name/timestamp
+2. Delete the old note by name
+3. Return the new note
+
+This means:
+- The note gets a NEW `keep_name` after replacement. The footer must be rewritten.
+- If create succeeds but delete fails, a duplicate note exists (documented gotcha)
+- The note type can change (text → list or vice versa) since it's a fresh creation
+
+### Error Propagation
+
+```
+KeepClientError (from backends)
+  → caught in exporter: skip note, add issue, continue
+  → caught in importer: not caught (propagates to _run_operation)
+
+AuthError (from auth.py)
+  → caught in CLI: print message, exit 1
+
+OperationSummary.fatal = True
+  → exit code 1, stops processing immediately (used for duplicate keep_names)
+
+OperationSummary with warnings/skips
+  → exit code 2 (completed with issues)
+
+_run_operation always raises typer.Exit
+  → even on success (exit code 0)
+```
+
+### `--dry-run` Behavior
+
+**Export dry-run:**
+- Fetches remote note list (one API call)
+- Builds local index (reads local files)
+- Performs conflict checks (hash comparison)
+- Does NOT download attachments
+- Does NOT write any files
+- Reports what would be exported or skipped
+
+**Import dry-run:**
+- Scans local markdown files
+- Fetches remote note list
+- Performs all conflict/duplicate checks
+- Does NOT create, replace, or delete notes
+- Does NOT rewrite footers
+- Reports what would be created, replaced, or skipped
+
+### `--images` Interactive Upload Flow
+
+When `--images` is passed during import:
+1. After creating/replacing a note that has local attachment files:
+   - Opens the note in the browser (`https://keep.google.com/#NOTE/{id}`)
+   - Opens the attachment directory in the system file explorer
+   - Polls `client.get_note()` every 5 seconds for up to 5 minutes
+   - User manually drags files into the browser
+   - Polling stops when `len(note.attachments) >= expected` or user presses Enter
+2. This also runs for **skipped** notes if `--images` is set (documented gotcha)
+3. On non-TTY stdin, the Enter-to-skip check is disabled
 
 ## Known Issues & Gotchas
 

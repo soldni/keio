@@ -58,7 +58,15 @@ class Importer:
         parsed_notes = [parse_markdown_file(path) for path in md_paths]
         self._log(f"Found {len(parsed_notes)} local file(s).")
 
-        duplicates = self._duplicate_titles(parsed_notes)
+        # Only count duplicate titles among notes that will go through the
+        # create path (no keep_name).  Tracked notes with keep_name use the
+        # replace path and are identified by their unique keep_name, so they
+        # must not be subject to this check.  Without this distinction,
+        # multiple untitled tracked notes (all with effective_title="") would
+        # be incorrectly skipped as "duplicate local title".
+        create_title_counts = self._duplicate_titles(
+            [n for n in parsed_notes if not (n.footer and n.footer.keep_name)]
+        )
         duplicate_keep_names = self._duplicate_keep_names(parsed_notes)
         if duplicate_keep_names:
             summary.fatal = True
@@ -80,14 +88,6 @@ class Importer:
         for idx, note in enumerate(parsed_notes, 1):
             label = _display_title(note)
             effective_title = _effective_title(note)
-            if duplicates.get(effective_title, 0) > 1:
-                self._log(f"[{idx}/{total}] Skipped {label} (duplicate local title)")
-                summary.increment("skipped")
-                summary.add_issue(
-                    "skip",
-                    f"Skipped duplicate local title `{effective_title}` in {note.path.name}",
-                )
-                continue
             has_images = note.attachments.has_files
             if has_images:
                 if images:
@@ -179,6 +179,15 @@ class Importer:
                 summary.increment("replaced")
                 if images and has_images and not dry_run:
                     self._assist_image_upload(new_note.name, note)
+                continue
+
+            if create_title_counts.get(effective_title, 0) > 1:
+                self._log(f"[{idx}/{total}] Skipped {label} (duplicate local title)")
+                summary.increment("skipped")
+                summary.add_issue(
+                    "skip",
+                    f"Skipped duplicate local title `{effective_title}` in {note.path.name}",
+                )
                 continue
 
             if effective_title in notes_by_title:
